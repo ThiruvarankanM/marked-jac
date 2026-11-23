@@ -1,4 +1,119 @@
-# neojac dogfooding findings: porting markedjs/marked
+# neojac findings: porting marked to Jac
+
+**Original:** [markedjs/marked](https://github.com/markedjs/marked) v18.2.1, a TypeScript Markdown-to-HTML library (13 files, ~4,800 lines).
+**Port:** this repo, 5,791 lines of Jac on neojac 0.3.3.
+**Status:** done.
+
+## The short version
+
+- **Same output:** the Jac port gives byte-identical HTML on **1,658 of 1,658** recorded spec inputs. The original passes 2,041/2,041 spec tests and 272/272 unit tests.
+- **More than the library:** it also ports marked's CLI and adds a small served app that keeps pages on the graph.
+- **24 findings:** 2 critical, 10 major and 12 minor.
+- **The two critical ones** can leave a user's saved data unreadable, or break every user's calls until a restart.
+- **Hand-written:** `neojac port` translated **0 of the 13** TypeScript files.
+
+## Ground rules
+
+We met neojac cold, the way a new user would:
+
+- Only the latest neojac release was used.
+- Everything about Jac was learned from what neojac ships: `neojac docs`, `neojac skills`, `neojac help` and its error messages.
+- neojac's own source was never read. Each bug is reported by its symptom and a small repro, and any guess at a cause is labelled as a guess.
+- Every gap was logged when it was hit. Nothing was quietly worked around.
+
+**Disclosure:** before these rules applied, the installed release's top-level `README.md` was read, and the file names under `rt/` were listed once. No runtime source file was opened.
+
+## What we did
+
+| Step | Result |
+|---|---|
+| 1. Import the dependencies (`neojac absorb`) | Worked. It was later removed, because the port never calls npm marked. |
+| 2. Machine-translate (`neojac port`) | All 13 files refused, with 226 errors. An empty `.js` file crashed the tool. |
+| 3. Write it by hand, in idiomatic Jac | Done. Tokens are graph nodes, rendering is a walker, the modules are wired in `archwire.jac`, and a JS-to-Python regex translator is in `jsre.jac`. |
+| 4. Prove it behaves the same | 1,658 / 1,658 byte-identical outputs. 20 Jac tests pass, and `neojac check` and `neojac fmt --check` are clean. |
+
+## How "the same" is checked
+
+`golden/golden.json` holds the exact HTML that the original marked produces for every CommonMark and GFM spec input. `golden_run.jac` runs the Jac port on the same inputs and compares the results byte for byte. A single changed character is a failure.
+
+## Findings at a glance
+
+| Severity | Count | Meaning |
+|---|---|---|
+| Critical | 2 | Loses data, or locks users out of it |
+| Major | 10 | Needs a real workaround |
+| Minor | 12 | Friction, wrong docs, or an unclear error |
+
+Click a number to jump to its full repro.
+
+### Saving data (the app store)
+
+| # | Severity | What happens |
+|---|---|---|
+| [#16](#16-one-unstorable-value-breaks-every-users-calls-until-restart) | Critical | One value that can't be stored (a subclass in a base-typed field) breaks **every user's** calls until restart, and nothing is logged. |
+| [#17](#17-a-str--none-field-holding-none-makes-the-kept-graph-unreadable) | Critical | A `str \| None` field set to `None` saves fine, but after a restart that user's whole graph can't be read. |
+| [#18](#18-one-any-field-on-an-unused-node-type-stops-a-served-app-from-building) | Major | One `any` field on a node type the app never uses stops the app from building, and the error points into neojac's own files. |
+| [#6](#6-ordered-children-edges-can-only-be-appended-never-inserted-or-replaced) | Minor | Child edges can only be appended. A child can't be inserted at a position or replaced. |
+
+### Speed
+
+| # | Severity | What happens |
+|---|---|---|
+| [#11](#11-research-on-a--anchored-pattern-is-olength-of-the-string) | Major | `re.search` with a leading `^` scans the whole string, about 700× slower than CPython and V8. |
+| [#12](#12-visit-0-is-oqueue-length-so-a-depth-first-walk-of-a-wide-tree-is-quadratic) | Major | The documented depth-first walk (`visit :0:`) is quadratic on wide trees: 100k children take 4.6 s, against 0.03 s for a plain `visit`. |
+| [#13](#13-string-slices-copy-and-there-is-no-string-view-or-sticky-regex) | Minor | No string view or sticky regex, so the usual JS lexer pattern stays O(n²). |
+
+### Porting tools
+
+| # | Severity | What happens |
+|---|---|---|
+| [#3](#3-neojac-port-refuses-every-file-of-marked-1313-jsts-port-covers-a-small-subset) | Major | `port` refuses all 13 files: regex literals, type aliases, interfaces, object literals, imports, arrow functions. |
+| [#2](#2-neojac-port-crashes-on-an-empty-js-file-in-a-directory-nothing-is-reported) | Major | One empty `.js` file crashes `port` and hides every other file's result. |
+| [#4](#4-port-ignores-the-projects-tsconfigjson-ts-import-paths-are-refused-ts5097) | Major | `port` ignores `tsconfig.json`, so every `./x.ts` import is an error. |
+
+### Language and library
+
+| # | Severity | What happens |
+|---|---|---|
+| [#5](#5-re-has-no-unicode-property-classes-pp-pl-) | Major | `re` has no `\p{..}` Unicode classes, which marked's emphasis rules need. |
+| [#10](#10-isinstance-with-two-subclasses-does-not-narrow-a-base-class-value) | Major | `isinstance(x, (A, B))` doesn't narrow a base-class value, though the docs say it does. |
+| [#21](#21-testing-for-several-subclasses-does-not-narrow-a-base-class-value) | Minor | The same narrowing gap affects `or` of two tests and `case A() \| B():`. |
+| [#24](#24-inspectisawaitable-on-a-function-crashes-with-modulenotfounderror) | Major | `inspect.isawaitable(f)` crashes when `f`'s signature names an imported type. |
+| [#7](#7-vars-refuses-a-value-typed-object-the-message-calls-it-any) | Minor | `vars()` refuses a value typed `object`, and the message calls it `any`. |
+| [#8](#8-a-method-cannot-be-read-off-a-class-so-a-library-cannot-tell-whether-it-was-overridden) | Minor | A method can't be read off a class, so a library can't detect an override. |
+| [#9](#9-print-of-a-function-value-does-not-compile) | Minor | `print` of a function doesn't compile. |
+| [#19](#19-hasattr-says-a-coroutine-has-none-of-its-methods) | Minor | `hasattr` says a coroutine has none of its methods. |
+| [#20](#20-asynciogatherlist_of_coroutines-is-rejected) | Minor | `asyncio.gather(*list_of_coroutines)` is rejected. |
+| [#23](#23-stre-ignores-a-new-eargs) | Minor | Assigning `e.args` doesn't change `str(e)`. |
+
+### Toolchain
+
+| # | Severity | What happens |
+|---|---|---|
+| [#15](#15-names-only-a-test-annex-uses-have-no-proper-home-under-an-archwire) | Major | A name only a test uses can't be wired in `archwire.jac`: the same file passes `test` and fails `build`. |
+| [#14](#14-neojac-check-on-an-annex-checks-it-as-if-it-were-a-module) | Minor | `neojac check` on a test or impl file checks it alone, which gives false errors. |
+
+### Documentation
+
+| # | Severity | What happens |
+|---|---|---|
+| [#1](#1-writing-jac-skill-says-class-is-not-built-yet-it-compiles-and-runs) | Minor | The `writing-jac` skill says `class` isn't built, but it works. |
+| [#22](#22-an-override-cannot-narrow-an-any-return) | Minor | The inheritance page doesn't say whether an `any` return can be narrowed. |
+
+## Run it
+
+```sh
+neojac test                         # 20 tests
+neojac run golden_run.jac           # 1658/1658 against the original's output
+echo "# hi" | neojac run cli.jac    # the marked CLI
+neojac run preview                  # served app
+```
+
+Other ports from the same run: [vaultwarden-jac](https://github.com/ThiruvarankanM/vaultwarden-jac).
+
+---
+
+## Setup details
 
 - Compiler: neojac 0.3.3 (macos-aarch64, 98a4abf03de2)
 - Target: markedjs/marked @ 502e658 (v18.2.1; 13 TypeScript files, ~4,800 lines; Markdown -> HTML)
