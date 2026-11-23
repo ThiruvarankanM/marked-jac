@@ -54,7 +54,9 @@ impl Marked.parse_inline(src: any, options: MarkedExtension | Options | None = N
     return self.parse_markdown(src, options, False);
 }
 
-impl Marked.parse_markdown(src: any, options: MarkedExtension | Options | None, block: bool) -> any {
+impl Marked.parse_markdown(
+    src: any, options: MarkedExtension | Options | None, block: bool
+) -> any {
     explicit_sync = False;
     if isinstance(options, Options) {
         opt = options;
@@ -67,12 +69,14 @@ impl Marked.parse_markdown(src: any, options: MarkedExtension | Options | None, 
     error: Exception | None = None;
     if self.defaults.async_ and explicit_sync {
         error = Exception(
-            "marked(): The async option was set to true by an extension. Remove async: false from the parse options object to return a Promise."
+            "marked(): The async option was set to true by an extension. Remove async: false from the parse options object to return a Promise.",
         );
     } elif src is None {
         error = Exception("marked(): input parameter is undefined or null");
     } elif not isinstance(src, str) {
-        error = Exception("marked(): input parameter is of type " + js_type(src) + ", string expected");
+        error = Exception(
+            "marked(): input parameter is of type " + js_type(src) + ", string expected"
+        );
     }
     if error is not None {
         if opt.silent {
@@ -104,7 +108,9 @@ impl Marked.parse_markdown(src: any, options: MarkedExtension | Options | None, 
         if opt.walk_tokens is not None {
             self.walk_tokens(kids(doc), opt.walk_tokens);
         }
-        ps = h.call("provide_parser", block) if h is not None else (parse_doc if block else parse_inline_doc);
+        ps = h.call("provide_parser", block)
+            if h is not None
+            else (parse_doc if block else parse_inline_doc);
         html = ps(doc, opt);
         if h is not None {
             html = h.call("postprocess", html);
@@ -128,7 +134,11 @@ impl Marked.parser(doc: Doc, options: Options | None = None) -> any {
 
 impl Marked.walk_tokens(tokens: list[Tok], callback: Callable[..., any]) -> list[any] {
     ex = self.defaults.extensions;
-    return walk_all(tokens, lambda (t: Tok) -> any { return callback(self, t); }, ex.child_tokens if ex else None);
+    return walk_all(
+        tokens,
+        lambda (t: Tok) -> any { return callback(self, t); },
+        ex.child_tokens if ex else None,
+    );
 }
 
 impl get_defaults -> Options {
@@ -178,7 +188,8 @@ impl add_extensions(into: Extensions, exts: list[Extension]) {
         }
         if e.renderer is not None {
             into.renderers[e.name] = compose_ext_renderer(e.renderer, into.renderers[e.name])
-                if e.name in into.renderers else e.renderer;
+                if e.name in into.renderers
+                else e.renderer;
         }
         if e.tokenizer is not None {
             if e.level == "block" {
@@ -251,16 +262,23 @@ impl parse_async(m: Marked, src: str, opt: Options, block: bool) -> any {
         if h is not None {
             src = await settle(h.call("preprocess", src));
         }
-        lx = await settle(h.call("provide_lexer", block)) if h is not None else (lex if block else lex_inline);
+        lx = await settle(h.call("provide_lexer", block))
+            if h is not None
+            else (lex if block else lex_inline);
         doc = await settle(lx(src, opt));
         if h is not None {
             doc = await settle(h.call("process_all_tokens", doc));
         }
         if opt.walk_tokens is not None {
-            pending = [asyncio.create_task(settle(v)) for v in m.walk_tokens(kids(doc), opt.walk_tokens)];
+            pending = [
+                asyncio.create_task(settle(v))
+                for v in m.walk_tokens(kids(doc), opt.walk_tokens)
+            ];
             await asyncio.gather(*pending);
         }
-        ps = await settle(h.call("provide_parser", block)) if h is not None else (parse_doc if block else parse_inline_doc);
+        ps = await settle(h.call("provide_parser", block))
+            if h is not None
+            else (parse_doc if block else parse_inline_doc);
         html = await settle(ps(doc, opt));
         if h is not None {
             html = await settle(h.call("postprocess", html));

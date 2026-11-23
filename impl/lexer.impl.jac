@@ -74,9 +74,9 @@ impl Hooks.patch(name: str, fn: Callable[..., any]) -> Hooks {
     return self;
 }
 
-impl compose_hook(h: Hooks, name: str, fn: Callable[..., any], prev: Callable[..., any]) -> Callable[
-    ..., any
-] {
+impl compose_hook(
+    h: Hooks, name: str, fn: Callable[..., any], prev: Callable[..., any]
+) -> Callable[..., any] {
     if name in ["preprocess", "postprocess", "process_all_tokens", "em_strong_mask"] {
         respect_async = name != "em_strong_mask";
         def pass_through(arg: any) -> any {
@@ -100,11 +100,15 @@ impl compose_hook(h: Hooks, name: str, fn: Callable[..., any], prev: Callable[..
     return fallback;
 }
 
-impl pass_through_async(h: Hooks, fn: Callable[..., any], prev: Callable[..., any], arg: any) -> any {
+impl pass_through_async(
+    h: Hooks, fn: Callable[..., any], prev: Callable[..., any], arg: any
+) -> any {
     return prev(await settle(fn(h, arg)));
 }
 
-impl fallback_async(h: Hooks, fn: Callable[..., any], prev: Callable[..., any], args: list[any]) -> any {
+impl fallback_async(
+    h: Hooks, fn: Callable[..., any], prev: Callable[..., any], args: list[any]
+) -> any {
     ret = await settle(fn(h, *args));
     if ret is False {
         ret = await settle(prev(*args));
@@ -312,7 +316,8 @@ impl Lexer.inline(src: str, into: Tok, slot: str = "tokens") -> Tok {
     return into;
 }
 
-impl Lexer.run_extensions(fns: list[Callable[..., any]], src: str, tokens: list[Tok]) -> Tok | None {
+impl Lexer.run_extensions(fns: list[Callable[..., any]], src: str, tokens: list[Tok]) -> Tok
+    | None {
     for fn in fns {
         t = fn(self, src, tokens);
         if isinstance(t, Tok) {
@@ -339,7 +344,9 @@ impl Lexer.link_in_text(text: str) -> bool {
         return False;
     }
     for m in self.inline_rules.block_skip.rx().finditer(text) {
-        if self.inline_rules.link.hit(m.group(0)) and (m.start() == 0 or text[m.start() - 1] != "!") {
+        if self.inline_rules.link.hit(m.group(0))
+            and (m.start() == 0 or text[m.start() - 1] != "!")
+        {
             return True;
         }
     }

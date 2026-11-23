@@ -128,36 +128,36 @@ walker TokenJson {
 }
 
 glob BLOCK_TYPES: dict[str, str] = {
-        "space": "space",
-        "hr": "hr",
-        "heading": "heading",
-        "code": "code",
-        "table": "table",
-        "blockquote": "blockquote",
-        "list": "list_",
-        "checkbox": "checkbox",
-        "html": "html",
-        "def": "def_",
-        "paragraph": "paragraph",
-        "text": "text",
-    },
-    INLINE_TYPES: dict[str, str] = {
-        "escape": "text",
-        "html": "html",
-        "link": "link",
-        "image": "image",
-        "checkbox": "checkbox",
-        "strong": "strong",
-        "em": "em",
-        "codespan": "codespan",
-        "br": "br",
-        "del": "del_",
-        "text": "text",
-    };
+         "space": "space",
+         "hr": "hr",
+         "heading": "heading",
+         "code": "code",
+         "table": "table",
+         "blockquote": "blockquote",
+         "list": "list_",
+         "checkbox": "checkbox",
+         "html": "html",
+         "def": "def_",
+         "paragraph": "paragraph",
+         "text": "text",
+     },
+     INLINE_TYPES: dict[str, str] = {
+         "escape": "text",
+         "html": "html",
+         "link": "link",
+         "image": "image",
+         "checkbox": "checkbox",
+         "strong": "strong",
+         "em": "em",
+         "codespan": "codespan",
+         "br": "br",
+         "del": "del_",
+         "text": "text",
+     };
 
-def compose_renderer(r: Renderer, fn: Callable[..., any], prev: Callable[..., any]) -> Callable[
-    ..., any
-];
+def compose_renderer(
+    r: Renderer, fn: Callable[..., any], prev: Callable[..., any]
+) -> Callable[..., any];
 
 def text_of(t: Tok) -> str;
 
@@ -170,7 +170,9 @@ def parse_doc(doc: Doc, options: Options | None = None) -> any;
 def parse_inline_doc(doc: Doc, options: Options | None = None) -> any;
 
 def walk_all(
-    tokens: list[Tok], callback: Callable[..., any], child_tokens: dict[str, list[str]] | None = None
+    tokens: list[Tok],
+    callback: Callable[..., any],
+    child_tokens: dict[str, list[str]] | None = None,
 ) -> list[any];
 
 def push_values(values: list[any], v: any);

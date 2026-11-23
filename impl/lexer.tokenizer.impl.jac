@@ -46,9 +46,9 @@ impl Tokenizer.patch(name: str, fn: Callable[..., any]) -> Tokenizer {
     return self;
 }
 
-impl compose_tokenizer(tk: Tokenizer, fn: Callable[..., any], prev: Callable[..., any]) -> Callable[
-    ..., any
-] {
+impl compose_tokenizer(
+    tk: Tokenizer, fn: Callable[..., any], prev: Callable[..., any]
+) -> Callable[..., any] {
     def run(*args: any) -> any {
         ret = fn(tk, *args);
         if ret is False {
@@ -700,7 +700,9 @@ impl Tokenizer.reflink(src: str, links: dict[str, LinkDef]) -> Tok | None {
     }
     cap = groups(m);
     label_start = 2 if cap[0][0] == "!" else 1;
-    if not lx.options.pedantic and is_label_end_inside_token(src, cap[1], label_start, lx.inline_rules) {
+    if not lx.options.pedantic
+        and is_label_end_inside_token(src, cap[1], label_start, lx.inline_rules)
+    {
         return None;
     }
     key = normalize_label(cap[2] if len(cap) > 2 and cap[2] else cap[1]);

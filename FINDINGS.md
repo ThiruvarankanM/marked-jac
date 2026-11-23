@@ -1,14 +1,16 @@
 # neojac findings: porting marked to Jac
 
 **Original:** [markedjs/marked](https://github.com/markedjs/marked) v18.2.1, a TypeScript Markdown-to-HTML library (13 files, ~4,800 lines).
-**Port:** this repo, 5,791 lines of Jac on neojac 0.3.3.
+**Port:** this repo, 5,909 lines of Jac. Written on neojac 0.3.3, moved to and retested on **neojac 0.4.0**.
 **Status:** done.
 
 ## The short version
 
 - **Same output:** the Jac port gives byte-identical HTML on **1,658 of 1,658** recorded spec inputs. The original passes 2,041/2,041 spec tests and 272/272 unit tests.
 - **More than the library:** it also ports marked's CLI and adds a small served app that keeps pages on the graph.
-- **24 findings:** 2 critical, 10 major and 12 minor.
+- **25 findings:** 2 critical, 10 major and 13 minor.
+- **On 0.4.0:** the port needed no code change, only `neojac fmt` (#25). 23 of the first 24 findings are still there, #14 changed but is still a false error, and #25 is new.
+- **Speed:** the 1,658 cases take about 10 s in the port, against 0.43 s for the original on Node: about 23× slower.
 - **The two critical ones** can leave a user's saved data unreadable, or break every user's calls until a restart.
 - **Hand-written:** `neojac port` translated **0 of the 13** TypeScript files.
 
@@ -30,11 +32,25 @@ We met neojac cold, the way a new user would:
 | 1. Import the dependencies (`neojac absorb`) | Worked. It was later removed, because the port never calls npm marked. |
 | 2. Machine-translate (`neojac port`) | All 13 files refused, with 226 errors. An empty `.js` file crashed the tool. |
 | 3. Write it by hand, in idiomatic Jac | Done. Tokens are graph nodes, rendering is a walker, the modules are wired in `archwire.jac`, and a JS-to-Python regex translator is in `jsre.jac`. |
-| 4. Prove it behaves the same | 1,658 / 1,658 byte-identical outputs. 20 Jac tests pass, and `neojac check` and `neojac fmt --check` are clean. |
+| 4. Prove it behaves the same | 1,658 / 1,658 byte-identical outputs. Jac tests pass, and `neojac check` and `neojac fmt --check` are clean. |
+| 5. Move to neojac 0.4.0 | `neojac check` passed unchanged. `neojac fmt` re-laid out 8 files (#25). 1,658 / 1,658 still identical, 64 tests pass, and the served app starts and renders. |
+| 6. Retest every finding on 0.4.0 | Each finding below ends with an **On 0.4.0** line. |
 
 ## How "the same" is checked
 
 `golden/golden.json` holds the exact HTML that the original marked produces for every CommonMark and GFM spec input. `golden_run.jac` runs the Jac port on the same inputs and compares the results byte for byte. A single changed character is a failure.
+
+## Speed
+
+The same 1,658 inputs, on one machine (macOS, Apple silicon):
+
+| | Port (neojac 0.4.0) | Original (marked on Node) |
+|---|---|---|
+| All 1,658 cases, whole process | 9.8–10.2 s (about 14 s on a first run, which builds) | 0.43 s |
+| Parsing only | | 0.35 s |
+| Slowest case | `redos/quadratic_inline_masking[2]`, about 3.4 s | |
+
+The port is about 23× slower. The slowest case alone is about a third of the port's time. Where the rest goes was not profiled.
 
 ## Findings at a glance
 
@@ -42,7 +58,7 @@ We met neojac cold, the way a new user would:
 |---|---|---|
 | Critical | 2 | Loses data, or locks users out of it |
 | Major | 10 | Needs a real workaround |
-| Minor | 12 | Friction, wrong docs, or an unclear error |
+| Minor | 13 | Friction, wrong docs, or an unclear error |
 
 Click a number to jump to its full repro.
 
@@ -92,6 +108,7 @@ Click a number to jump to its full repro.
 |---|---|---|
 | [#15](#15-names-only-a-test-annex-uses-have-no-proper-home-under-an-archwire) | Major | A name only a test uses can't be wired in `archwire.jac`: the same file passes `test` and fails `build`. |
 | [#14](#14-neojac-check-on-an-annex-checks-it-as-if-it-were-a-module) | Minor | `neojac check` on a test or impl file checks it alone, which gives false errors. |
+| [#25](#25-the-040-formatter-re-lays-out-code-that-033s-formatter-accepted) | Minor | 0.4.0's `fmt` re-lays out 8 files that 0.3.3 left as they were, and no page says so. |
 
 ### Documentation
 
@@ -103,19 +120,19 @@ Click a number to jump to its full repro.
 ## Run it
 
 ```sh
-neojac test                         # 20 tests
+neojac test                         # 64 tests
 neojac run golden_run.jac           # 1658/1658 against the original's output
 echo "# hi" | neojac run cli.jac    # the marked CLI
 neojac run preview                  # served app
 ```
 
-Other ports from the same run: [vaultwarden-jac](https://github.com/ThiruvarankanM/vaultwarden-jac).
+Other ports from the same run: [vaultwarden-jac](https://github.com/ThiruvarankanM/vaultwarden-jac) and [docs-jac](https://github.com/ThiruvarankanM/docs-jac).
 
 ---
 
 ## Setup details
 
-- Compiler: neojac 0.3.3 (macos-aarch64, 98a4abf03de2)
+- Compiler: neojac 0.3.3 (macos-aarch64, 98a4abf03de2), then neojac 0.4.0
 - Target: markedjs/marked @ 502e658 (v18.2.1; 13 TypeScript files, ~4,800 lines; Markdown -> HTML)
 - Baseline: original passes 2041/2041 spec tests and 272/272 unit tests; golden outputs for
   1,658 spec inputs recorded in `golden/golden.json` (byte-exact output of the original).
@@ -125,8 +142,8 @@ Other ports from the same run: [vaultwarden-jac](https://github.com/Thiruvaranka
   expected HTML. `neojac absorb` was run (its `[npm.marked]` table and `eco/marked`) and then removed,
   since the port never calls npm marked.
 - Status:
-  - The library passes all 1658/1658 golden cases and 20 tests. `neojac check` and
-    `neojac fmt --check` are clean.
+  - The library passes all 1658/1658 golden cases and 64 tests (20 in the test annexes, 44 in
+    `spec_hooks.jac` and `spec_instance.jac`). `neojac check` and `neojac fmt --check` are clean.
   - `archwire.jac` wires every module, in layers regex → grammar → util/model → render → lex →
     api → apps.
 - Apps:
@@ -175,6 +192,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
 | 22 | docs | minor | An override may not narrow a return of `any` to `str` (E2199); the inheritance page only says "a subclass, or fewer members of its union", and does not say whether `any` counts |
 | 23 | runtime | minor | Assigning `e.args` changes `e.args` but not `str(e)`, so an error message cannot be extended in place |
 | 24 | runtime | major | `inspect.isawaitable(f)` crashes with `ModuleNotFoundError` when `f` is a Jac function whose signature names a type imported from another module |
+| 25 | toolchain | minor | 0.4.0's `fmt` re-lays out 8 files that were clean under 0.3.3's `fmt --check`; no line width or release notes in the docs |
 
 ---
 
@@ -197,6 +215,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
 
   `neojac run` prints `1`, exit 0.
 - **Expected:** the skill agrees with the docs page.
+- **On 0.4.0:** Still there. The skill still says "`class` is not built yet", and the repro still prints `1`.
 
 ## 2. `neojac port` crashes on an empty `.js` file; in a directory, nothing is reported
 
@@ -220,6 +239,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
   record with a code (in json mode it is a record with `"code":""` and `"kind":"IO"`).
 - **Guess (unverified):** the TypeScript reader asks for the line of a position in a zero-length
   file.
+- **On 0.4.0:** Still there. `port --check d/empty.js` still ends in TypeScript's "Debug Failure".
 
 ## 3. `neojac port` refuses every file of marked (13/13); JS/TS port covers a small subset
 
@@ -255,6 +275,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
     `obj` (TypeScript already knows the shape); **arrow functions** -> typed `lambda`;
     **imports** between files of one ported directory -> Jac imports. These are the
     everyday constructs of TS; without them no real file ports.
+- **On 0.4.0:** Still there: 13 of 13 refused, 226 diagnostics, the same counts. The port page's last line now reads "It is a gap to close before JavaScript's port is complete." and no longer names #208.
 
 ## 4. `port` ignores the project's `tsconfig.json`; `.ts` import paths are refused (TS5097)
 
@@ -275,6 +296,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
   compiler options it pins. `neojac docs toolchain/port` and `interop/port-javascript` say nothing
   about `tsconfig.json`. A TypeScript *type-check* error is also not a port refusal: it should not
   stop a file that TypeScript itself (with the project's config) accepts.
+- **On 0.4.0:** Still there: 40 TS5097.
 
 ## 5. `re` has no Unicode property classes (`\p{P}`, `\p{L}`, ...)
 
@@ -302,6 +324,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
   are Unicode (JS: ASCII); `\s` is a different set; `(?<name>)`/`\k<name>` are spelled
   `(?P<name>)`/`(?P=name)`; `[^]` and `[]` do not exist. A documented "JS dialect" mode in `re` (or
   in `port`) would make every JS port's regexes work unchanged.
+- **On 0.4.0:** Still there: `\p{P}` fails with `PatternError: bad escape \p`.
 
 ## 6. Ordered children: edges can only be appended, never inserted or replaced
 
@@ -340,6 +363,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
   them only once their final kind is known, so no node ever changes place. This is how marked's
   algorithm can be written anyway; the gap is noted because any editor-like use (a live preview
   that patches one block) would need in-place replacement.
+- **On 0.4.0:** Still there: the repro still prints `['!', 'y']`.
 
 ## 7. `vars()` refuses a value typed `object`; the message calls it `any`
 
@@ -362,6 +386,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
   is refused on purpose, the message should name the type written (`object`), not `any`.
 - **Compare:** Python's `vars(o)` and TypeScript's `Object.keys(o)` take any object.
 - **What the port does:** the test calls `vars` once per rule set, each with its own type.
+- **On 0.4.0:** Still there (E1053).
 
 ## 8. A method cannot be read off a class, so a library cannot tell whether it was overridden
 
@@ -404,6 +429,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
 - **What the port does:** `Tokenizer` has a field `merge_paragraphs: bool = True` that a subclass
   overriding `paragraph` sets to `False`. That is one more thing a user must remember, and marked
   does not need it.
+- **On 0.4.0:** Still there: E1030 on `type[T]`, and the second repro prints `False False False`.
 
 ## 9. `print` of a function value does not compile
 
@@ -411,6 +437,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
 - **Symptom:** `error[E5090]: neojac does not support converting Callable[[], int] to str yet`.
 - **Expected:** some text such as `<bound method T.p>`; Python, JS and Go all print a function
   value. Only debugging is affected.
+- **On 0.4.0:** Still there (E5090).
 
 ## 10. `isinstance` with two subclasses does not narrow a base-class value
 
@@ -449,6 +476,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
 - **Hit again:** `TokenJson.build` in `impl/renderer.impl.jac` needs `text` from `Strong`, `Em`
   or `Del`, and from `Escape` or `Codespan`. Both narrowing forms fail, so each class gets its own
   branch with the same body.
+- **On 0.4.0:** Still there (E1030).
 
 ## 11. `re.search` on a `^`-anchored pattern is O(length of the string)
 
@@ -495,6 +523,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
   with `^` and the pattern has no `m` flag, and then calls `match` instead of `search`. JS's `^`
   without `m` means "index 0 only", so the meaning doesn't change, but every JS-regex user would
   have to repeat this.
+- **On 0.4.0:** Still there, a little slower: `re.search` 0.199 ms against `re.match` 0.00009 ms (it was 0.137 ms).
 
 ## 12. `visit :0:` is O(queue length), so a depth-first walk of a wide tree is quadratic
 
@@ -542,6 +571,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
   - **`walk_tokens`:** marked's `walkTokens` must call back in document order (pre-order), so
     breadth-first won't do. `WalkTokens` spawns a fresh walker on each child instead of queueing
     with `:0:`.
+- **On 0.4.0:** Still quadratic, about twice as fast: `visit :0:` takes 0.17 / 0.60 / 2.33 s against 0.004 / 0.008 / 0.018 s for `visit`.
 
 ## 13. String slices copy, and there is no string view or sticky regex
 
@@ -568,6 +598,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
     slicing.
 - **What the port does:** keeps marked's slicing for faithfulness. Rewriting every rule to drop
   `^` and run at a cursor would mean diverging from marked's rules.
+- **On 0.4.0:** Still there: the slice loop takes 0.31 s (it was 0.55 s).
 
 ## 14. `neojac check` on an annex checks it as if it were a module
 
@@ -585,6 +616,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
 - **Compare:**
   - `cargo check` and `tsc -p` work on the project, never one file.
   - `go vet x_test.go` alone has the same weakness, but `go vet ./pkg` and gopls resolve the package.
+- **On 0.4.0:** Changed, still a false error. `check marked.test.jac` still gives 19 W2001. `check impl/tokens.impl.jac` now gives one `E2201: 'impl.tokens' is in no layer` instead of the E2009s.
 
 ## 15. Names only a test annex uses have no proper home under an archwire
 
@@ -619,6 +651,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
   - Rust has `[dev-dependencies]` and `#[cfg(test)] use ...`.
   - Go allows `_test.go` imports that the package build never sees.
   - Bazel has `testonly = True`, which layering checks enforce.
+- **On 0.4.0:** Still there. The E1146 page still lists where a use counts (code, a type annotation, an impl file, `__all__`) without test annexes, and no page says how a test annex gets a test-only name under an archwire (`neojac docs language/tests` only says an annex sees its module's names). The kept workaround, an `import` in the annex, still passes: 64 tests.
 
 ## 16. One unstorable value breaks every user's calls until restart
 
@@ -674,6 +707,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
   - Django and SQLAlchemy polymorphic models, and Rails STI, store the concrete class.
   - Firestore and Mongo store whatever document shape is given.
   - In every one of them, a bad write fails that request only.
+- **On 0.4.0:** Still there, retested in [docs-jac #15](https://github.com/ThiruvarankanM/docs-jac/blob/main/FINDINGS.md#15-one-subclass-value-in-a-kept-field-still-breaks-every-users-calls-marked-16): the same 400 `rejected` for every user until a restart, and then the node is gone.
 
 ## 17. A `str | None` field holding `None` makes the kept graph unreadable
 
@@ -706,6 +740,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
 - **Expected:** a value the program could hold, and the store could write, reads back.
 - **Compare:** SQLite NULL, Postgres, and every ORM round-trip nullable text. Python's pickle and
   JSON round-trip `None`.
+- **On 0.4.0:** Still there, retested in [docs-jac #14](https://github.com/ThiruvarankanM/docs-jac/blob/main/FINDINGS.md#14-a-str--none-field-holding-none-still-makes-the-kept-graph-unreadable-marked-17). In [vaultwarden-jac #14](https://github.com/ThiruvarankanM/vaultwarden-jac/blob/main/FINDINGS.md#14-a-str--none-field-holding-none-locks-every-user-out-after-a-restart) it locked every user out after a restart.
 
 ## 18. One `any` field on an unused node type stops a served app from building
 
@@ -747,6 +782,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
   `node Custom(Tok) { has type_: str; }`, and an extension declares its own subclass with typed
   fields. That is the more Jac-like model, so I kept it. But it was forced, and a JSON-shaped
   extension token cannot be kept in an app.
+- **On 0.4.0:** Still there. The same `node Extra(Item) { has data: dict[str, any] = {}; }`, never made, in a 0.4.0 served app (`space api: native { svc; }`) gives `E1229: keep_node() cannot be specialized for Extra` at `svc.jac:1:1`, plus two E0109 in `rt/stdjac/codec.jac`.
 
 ## 19. `hasattr` says a coroutine has none of its methods
 
@@ -780,6 +816,7 @@ Severity: **critical** (loses or locks data), **blocker** (stops the port), **ma
 - **Hit in marked-jac:** async `use()` hooks may return a value or a coroutine, so the port needs
   "await it if it is awaitable". The first `settle` used `hasattr`, and it returned unawaited
   coroutines. It now uses `inspect.isawaitable`.
+- **On 0.4.0:** Still there: `False False False`, then `True`.
 
 ## 20. `asyncio.gather(*list_of_coroutines)` is rejected
 
@@ -825,6 +862,8 @@ Annotating the list as `list[any]` fails the same way. These two forms compile a
 - **TypeScript:** `Promise.all(arr)` takes an iterable of `T | PromiseLike<T>`.
 
 **Hit in marked-jac:** `parse_async` awaits every `walk_tokens` value, as marked's `await Promise.all(values)` does. It now wraps each value in `asyncio.create_task(settle(v))`. This is closer to JS anyway, since a JS promise is already running when it is collected.
+
+- **On 0.4.0:** Still there (E1053).
 
 ## 21. Testing for several subclasses does not narrow a base-class value
 
@@ -877,6 +916,8 @@ Each of the three functions gives `error[E1030]: Tok has no field 'text'`. A sin
 
 **Hit in marked-jac:** `text_of(t: Tok)` reads `.text` from Text, Escape, TextBlock or Html. It now uses one `if isinstance` per type.
 
+- **On 0.4.0:** Still there: the same three E1030.
+
 ## 22. An override cannot narrow an `any` return
 
 Repro (neojac 0.3.3):
@@ -910,6 +951,8 @@ error[E2199]: Sub.get overrides Base.get with another signature: it returns str,
 
 **Hit in marked-jac:** marked's hooks can return anything (a string, a promise, or an object from `provideParser`), so `Hooks.preprocess` returns `any`. A subclass hook that returns `str` must declare `-> any`.
 
+- **On 0.4.0:** Still there (E2199).
+
 ## 23. `str(e)` ignores a new `e.args`
 
 Repro (neojac 0.3.3):
@@ -937,6 +980,8 @@ CPython prints `boom more ('boom more',)`, because `BaseException.__str__` forma
 - **Java:** the message is final, so code wraps the exception instead.
 
 **Hit in marked-jac:** marked's `onError` appends "Please report this to https://github.com/markedjs/marked." to the error and rethrows the same error. marked-jac now raises `Exception(message) from e`, which loses the original exception type.
+
+- **On 0.4.0:** Still there: prints `boom ('boom more',)`.
 
 ## 24. `inspect.isawaitable` on a function crashes with `ModuleNotFoundError`
 
@@ -995,6 +1040,28 @@ What the traceback shows: the check computes the function's signature, evaluates
 - **JS:** `v instanceof Promise` or `typeof v?.then === "function"` never touches a function's types.
 
 **Hit in marked-jac:** `settle(v)` awaits a hook's result until it is no longer awaitable. In async mode, `provideLexer` returns the function `lex`, and the check crashed every per-call `{async: true}` parse. `settle` now tests `not callable(v)` first. This is correct on its own, since a coroutine is never callable.
+
+- **On 0.4.0:** Still there: `False`, then `ModuleNotFoundError: No module named 'shapes'`.
+
+## 25. The 0.4.0 formatter re-lays out code that 0.3.3's formatter accepted
+
+- **Symptom:** this repo was clean under `neojac fmt --check` on 0.3.3. On 0.4.0, with no source
+  change, `fmt --check` lists 8 files. `neojac fmt .` rewrites them: 220 lines added, 102 removed.
+  Most are long `impl` headers, now broken before the parameters:
+
+  ```diff
+  -impl pass_through_async(h: Hooks, fn: Callable[..., any], prev: Callable[..., any], arg: any) -> any {
+  +impl pass_through_async(
+  +    h: Hooks, fn: Callable[..., any], prev: Callable[..., any], arg: any
+  +) -> any {
+  ```
+
+- **Docs:** `neojac docs toolchain/fmt` says there is one layout with no options, but gives no
+  line width. No page says what changed between releases (`neojac docs search changelog` finds
+  nothing).
+- **Why it matters:** a project that runs `fmt --check` in CI fails on the upgrade alone, with
+  nothing to say why.
+- **Expected:** release notes that say the layout changed, and the width on the fmt page.
 
 ## Withdrawn: long stalls of `port --check`
 

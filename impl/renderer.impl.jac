@@ -62,7 +62,11 @@ impl Renderer.code(t: Code) -> any {
     if not lang {
         return "<pre><code>" + body + "</code></pre>\n";
     }
-    return "<pre><code class=\"language-" + escape_html_entities(lang) + "\">" + body + "</code></pre>\n";
+    return "<pre><code class=\"language-"
+        + escape_html_entities(lang)
+        + "\">"
+        + body
+        + "</code></pre>\n";
 }
 
 impl Renderer.blockquote(t: Blockquote) -> any {
@@ -174,7 +178,11 @@ impl Renderer.image(t: Image) -> any {
     if clean is None {
         return escape_html_entities(alt);
     }
-    out = "<img src=\"" + escape_html_entities(clean) + "\" alt=\"" + escape_html_entities(alt) + "\"";
+    out = "<img src=\""
+        + escape_html_entities(clean)
+        + "\" alt=\""
+        + escape_html_entities(alt)
+        + "\"";
     if t.title {
         out += " title=\"" + escape_html_entities(t.title) + "\"";
     }
@@ -289,19 +297,26 @@ impl Render.step with Tok entry {
 }
 
 impl WalkTokens.each with Tok entry {
-    if not isinstance(here, Doc) and not isinstance(here, TableRow) and not isinstance(here, TableCell) {
+    if not isinstance(here, Doc)
+        and not isinstance(here, TableRow)
+        and not isinstance(here, TableCell)
+    {
         push_values(self.values, self.callback(here));
     }
     name = type_name(here);
     slots = self.child_tokens[name] if name in self.child_tokens else ["tokens"];
     for slot in slots {
         for k in kids_in(here, slot) {
-            k spawn WalkTokens(callback=self.callback, child_tokens=self.child_tokens, values=self.values);
+            k spawn WalkTokens(
+                callback=self.callback, child_tokens=self.child_tokens, values=self.values
+            );
         }
     }
 }
 
-impl compose_renderer(r: Renderer, fn: Callable[..., any], prev: Callable[..., any]) -> Callable[..., any] {
+impl compose_renderer(
+    r: Renderer, fn: Callable[..., any], prev: Callable[..., any]
+) -> Callable[..., any] {
     def run(t: Tok, *extra: any) -> any {
         ret = fn(r, t, *extra);
         if ret is False {
@@ -354,7 +369,9 @@ impl parse_inline_doc(doc: Doc, options: Options | None = None) -> any {
 }
 
 impl walk_all(
-    tokens: list[Tok], callback: Callable[..., any], child_tokens: dict[str, list[str]] | None = None
+    tokens: list[Tok],
+    callback: Callable[..., any],
+    child_tokens: dict[str, list[str]] | None = None,
 ) -> list[any] {
     values: list[any] = [];
     for t in tokens {
@@ -390,14 +407,12 @@ impl TokenJson.build with Tok exit {
     } elif isinstance(here, Blockquote) {
         d.update({"text": here.text, "tokens": ks});
     } elif isinstance(here, List) {
-        d.update(
-            {
-                "ordered": here.ordered,
-                "start": here.start if here.ordered else "",
-                "loose": here.loose,
-                "items": ks,
-            }
-        );
+        d.update({
+            "ordered": here.ordered,
+            "start": here.start if here.ordered else "",
+            "loose": here.loose,
+            "items": ks,
+        });
     } elif isinstance(here, ListItem) {
         d.update({"task": here.task, "loose": here.loose, "text": here.text, "tokens": ks});
         if here.task {
@@ -421,13 +436,7 @@ impl TokenJson.build with Tok exit {
         d.update({"text": here.text, "tokens": ks});
     } elif isinstance(here, Table) {
         cells = [[c for c in r["tokens"]] for r in ks];
-        d.update(
-            {
-                "align": here.align,
-                "header": cells[0] if cells else [],
-                "rows": cells[1:],
-            }
-        );
+        d.update({"align": here.align, "header": cells[0] if cells else [], "rows": cells[1:]});
     } elif isinstance(here, TableRow) {
         d["tokens"] = ks;
     } elif isinstance(here, TableCell) {

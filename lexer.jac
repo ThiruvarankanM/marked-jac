@@ -166,15 +166,23 @@ def lex(src: str, options: Options | None = None) -> Doc;
 
 def lex_inline(src: str, options: Options | None = None) -> Doc;
 
-def compose_hook(h: Hooks, name: str, fn: Callable[..., any], prev: Callable[..., any]) -> Callable[..., any];
+def compose_hook(
+    h: Hooks, name: str, fn: Callable[..., any], prev: Callable[..., any]
+) -> Callable[..., any];
 
-async def pass_through_async(h: Hooks, fn: Callable[..., any], prev: Callable[..., any], arg: any) -> any;
+async def pass_through_async(
+    h: Hooks, fn: Callable[..., any], prev: Callable[..., any], arg: any
+) -> any;
 
-async def fallback_async(h: Hooks, fn: Callable[..., any], prev: Callable[..., any], args: list[any]) -> any;
+async def fallback_async(
+    h: Hooks, fn: Callable[..., any], prev: Callable[..., any], args: list[any]
+) -> any;
 
 async def settle(v: any) -> any;
 
-def compose_tokenizer(tk: Tokenizer, fn: Callable[..., any], prev: Callable[..., any]) -> Callable[..., any];
+def compose_tokenizer(
+    tk: Tokenizer, fn: Callable[..., any], prev: Callable[..., any]
+) -> Callable[..., any];
 
 def unescape_link_label(label: str, inline: InlineRules) -> str;
 

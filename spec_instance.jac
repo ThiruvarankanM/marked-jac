@@ -10,11 +10,19 @@ def numeric_instance(fallback: bool) -> Marked {
     m = Marked(
         MarkedExtension(
             renderer={"code": lambda (r: Renderer, t: Code) -> any { return len(t.text); }},
-            hooks={"provide_parser": lambda (h: Hooks, block: any = None) -> any { return code_parser; }},
-        )
+            hooks={
+                "provide_parser": lambda (h: Hooks, block: any = None) -> any {
+                    return code_parser;
+                },
+            },
+        ),
     );
     if fallback {
-        m.use(MarkedExtension(renderer={"code": lambda (r: Renderer, t: Tok) -> any { return False; }}));
+        m.use(
+            MarkedExtension(
+                renderer={"code": lambda (r: Renderer, t: Tok) -> any { return False; }}
+            ),
+        );
     }
     return m;
 }
@@ -46,7 +54,9 @@ test "should preserve a numeric renderer result through a custom parser after fa
 }
 
 test "should still suppress null renderer output" {
-    m = Marked(MarkedExtension(renderer={"code": lambda (r: Renderer, t: Tok) -> any { return None; }}));
+    m = Marked(
+        MarkedExtension(renderer={"code": lambda (r: Renderer, t: Tok) -> any { return None; }})
+    );
     assert m.parse("```\n```") == "";
 }
 

@@ -133,7 +133,11 @@ async def three(m: Marked) -> list[any] {
 
 test "awaits chained preprocess hooks with a per-call async option" {
     m = Marked();
-    m.use(MarkedExtension(hooks={"preprocess": lambda (h: Hooks, md: str) -> any { return md.upper(); }}));
+    m.use(
+        MarkedExtension(
+            hooks={"preprocess": lambda (h: Hooks, md: str) -> any { return md.upper(); }}
+        ),
+    );
     m.use(MarkedExtension(hooks={"preprocess": add_world}));
     html = run(m.parse("hello", MarkedExtension(async_=True)));
     assert html.strip() == "<p>HELLO WORLD</p>";
@@ -142,7 +146,11 @@ test "awaits chained preprocess hooks with a per-call async option" {
 
 test "awaits chained postprocess hooks with a per-call async option" {
     m = Marked();
-    m.use(MarkedExtension(hooks={"postprocess": lambda (h: Hooks, html: any) -> any { return html.strip(); }}));
+    m.use(
+        MarkedExtension(
+            hooks={"postprocess": lambda (h: Hooks, html: any) -> any { return html.strip(); }}
+        ),
+    );
     m.use(MarkedExtension(hooks={"postprocess": add_space}));
     assert run(m.parse("hello", MarkedExtension(async_=True))) == "<p>hello</p>";
 }
@@ -155,7 +163,13 @@ test "uses an asynchronous provider fallback with a per-call async option" {
 
 test "should preprocess markdown" {
     m = Marked();
-    m.use(MarkedExtension(hooks={"preprocess": lambda (h: Hooks, md: str) -> any { return "# preprocess\n\n" + md; }}));
+    m.use(
+        MarkedExtension(
+            hooks={
+                "preprocess": lambda (h: Hooks, md: str) -> any { return "# preprocess\n\n" + md; },
+            },
+        ),
+    );
     assert m.parse("*text*").strip() == "<h1>preprocess</h1>\n<p><em>text</em></p>";
 }
 
@@ -185,7 +199,15 @@ test "should preprocess options async" {
 
 test "should postprocess html" {
     m = Marked();
-    m.use(MarkedExtension(hooks={"postprocess": lambda (h: Hooks, html: any) -> any { return html + "<h1>postprocess</h1>"; }}));
+    m.use(
+        MarkedExtension(
+            hooks={
+                "postprocess": lambda (h: Hooks, html: any) -> any {
+                    return html + "<h1>postprocess</h1>";
+                },
+            },
+        ),
+    );
     assert m.parse("*text*").strip() == "<p><em>text</em></p>\n<h1>postprocess</h1>";
 }
 
@@ -201,16 +223,24 @@ test "should process tokens before walkTokens" {
     m = Marked();
     m.use(
         MarkedExtension(
-            hooks={"process_all_tokens": lambda (h: Hooks, doc: Doc) -> any { return adopt(doc, [heading_tok("processAllTokens")]); }},
+            hooks={
+                "process_all_tokens": lambda (h: Hooks, doc: Doc) -> any {
+                    return adopt(doc, [heading_tok("processAllTokens")]);
+                },
+            },
             walk_tokens=walked,
-        )
+        ),
     );
     assert m.parse("*text*").strip() == "<p><em>text</em></p>\n<h1>processAllTokens walked</h1>";
 }
 
 test "should process tokens async before walkTokens" {
     m = Marked();
-    m.use(MarkedExtension(async_=True, hooks={"process_all_tokens": all_tokens_async}, walk_tokens=walked));
+    m.use(
+        MarkedExtension(
+            async_=True, hooks={"process_all_tokens": all_tokens_async}, walk_tokens=walked
+        ),
+    );
     p = m.parse("*text*");
     assert inspect.isawaitable(p);
     assert run(p).strip() == "<p><em>text</em></p>\n<h1>processAllTokens async walked</h1>";
@@ -221,21 +251,31 @@ test "should process all hooks in reverse" {
     m.use(
         MarkedExtension(
             hooks={
-                "preprocess": lambda (h: Hooks, md: str) -> any { return "# preprocess1\n\n" + md; },
-                "postprocess": lambda (h: Hooks, html: any) -> any { return html + "<h1>postprocess1</h1>\n"; },
-                "process_all_tokens": lambda (h: Hooks, doc: Doc) -> any { return adopt(doc, [heading_tok("processAllTokens1")]); },
-            }
-        )
+                "preprocess": lambda (h: Hooks, md: str) -> any {
+                    return "# preprocess1\n\n" + md;
+                },
+                "postprocess": lambda (h: Hooks, html: any) -> any {
+                    return html + "<h1>postprocess1</h1>\n";
+                },
+                "process_all_tokens": lambda (h: Hooks, doc: Doc) -> any {
+                    return adopt(doc, [heading_tok("processAllTokens1")]);
+                },
+            },
+        ),
     );
     m.use(
         MarkedExtension(
             async_=True,
             hooks={
-                "preprocess": lambda (h: Hooks, md: str) -> any { return "# preprocess2\n\n" + md; },
+                "preprocess": lambda (h: Hooks, md: str) -> any {
+                    return "# preprocess2\n\n" + md;
+                },
                 "postprocess": post2_async,
-                "process_all_tokens": lambda (h: Hooks, doc: Doc) -> any { return adopt(doc, [heading_tok("processAllTokens2")]); },
+                "process_all_tokens": lambda (h: Hooks, doc: Doc) -> any {
+                    return adopt(doc, [heading_tok("processAllTokens2")]);
+                },
             },
-        )
+        ),
     );
     p = m.parse("*text*");
     assert inspect.isawaitable(p);
@@ -245,7 +285,15 @@ test "should process all hooks in reverse" {
 
 test "should provide lexer" {
     m = Marked();
-    m.use(MarkedExtension(hooks={"provide_lexer": lambda (h: Hooks, block: any = None) -> any { return heading_doc; }}));
+    m.use(
+        MarkedExtension(
+            hooks={
+                "provide_lexer": lambda (h: Hooks, block: any = None) -> any {
+                    return heading_doc;
+                },
+            },
+        ),
+    );
     assert m.parse("text").strip() == "<h1>text</h1>";
 }
 
@@ -273,17 +321,27 @@ test "should provide parser return object" {
         MarkedExtension(
             hooks={
                 "provide_parser": lambda (h: Hooks, block: any = None) -> any {
-                    return lambda (doc: Doc, opt: any = None) -> any { return {"text": "test parser"}; };
+                    return lambda (doc: Doc, opt: any = None) -> any {
+                        return {"text": "test parser"};
+                    };
                 },
-            }
-        )
+            },
+        ),
     );
     assert m.parse("text")["text"] == "test parser";
 }
 
 test "should provide parser" {
     m = Marked();
-    m.use(MarkedExtension(hooks={"provide_parser": lambda (h: Hooks, block: any = None) -> any { return parser_text; }}));
+    m.use(
+        MarkedExtension(
+            hooks={
+                "provide_parser": lambda (h: Hooks, block: any = None) -> any {
+                    return parser_text;
+                },
+            },
+        ),
+    );
     assert m.parse("text").strip() == "test parser";
 }
 
@@ -353,7 +411,9 @@ test "should pass correct block to provideLexer for concurrent async parse and p
         return empty_doc;
     }
     m = Marked();
-    m.use(MarkedExtension(async_=True, hooks={"preprocess": slow_identity, "provide_lexer": provide}));
+    m.use(
+        MarkedExtension(async_=True, hooks={"preprocess": slow_identity, "provide_lexer": provide})
+    );
     asyncio.run(both(m, "text", "text"));
     assert sorted(got) == [False, True];
 }
@@ -389,7 +449,9 @@ test "should pass correct block to provideParser for concurrent async parse and 
         return lambda (doc: Doc, opt: any = None) -> any { return ""; };
     }
     m = Marked();
-    m.use(MarkedExtension(async_=True, hooks={"preprocess": slow_identity, "provide_parser": provide}));
+    m.use(
+        MarkedExtension(async_=True, hooks={"preprocess": slow_identity, "provide_parser": provide})
+    );
     asyncio.run(both(m, "text", "text"));
     assert sorted(got) == [False, True];
 }
